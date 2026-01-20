@@ -41,7 +41,7 @@ public class ConfigFileManager {
         String name = call.argument("name");
         String publisher = call.argument("publisher");
         String trayImageFileName = call.argument("trayImageFileName");
-        trayImageFileName = getFileName(trayImageFileName);
+        trayImageFileName = getFileName(context, trayImageFileName);
         String publisherWebsite = call.argument("publisherWebsite");
         String privacyPolicyWebsite = call.argument("privacyPolicyWebsite");
         String licenseAgreementWebsite = call.argument("licenseAgreementWebsite");
@@ -49,11 +49,13 @@ public class ConfigFileManager {
         List<Map<String, Object>> stickers = call.argument("stickers");
         boolean animatedStickerPack = call.argument("animatedStickerPack");
         StickerPack newStickerPack = new StickerPack(identifier, name, publisher, trayImageFileName, "",
-                publisherWebsite, privacyPolicyWebsite, licenseAgreementWebsite, imageDataVersion, false, animatedStickerPack);
+                publisherWebsite, privacyPolicyWebsite, licenseAgreementWebsite, imageDataVersion, false,
+                animatedStickerPack);
         List<Sticker> newStickers = new ArrayList<Sticker>();
         assert stickers != null;
         for (Map<String, Object> entry : stickers) {
-            Sticker s = new Sticker(getFileName((String) entry.get("path")), (List<String>) entry.get("emojis"));
+            Sticker s = new Sticker(getFileName(context, (String) entry.get("path")),
+                    (List<String>) entry.get("emojis"));
 
             newStickers.add(s);
         }
@@ -74,14 +76,23 @@ public class ConfigFileManager {
         return updateConfigFile(context, stickerPacks);
     }
 
-    static String getFileName(String name) {
+    static String getFileName(Context context, String name) {
+        if (name.contains("file://")) {
+            name = name.replace("file://", "");
+        }
         if (name.contains("assets://")) {
             name = name.replace("assets://", "");
             name = name.replace("/", "mzn_ad_");
-        } else if (name.contains("file://")) {
-            name = name.replace("file://", "");
-            name = name.replace("/", "mzn_fd_");
+            return name;
         }
+
+        // Optimization: shorten the data directory path
+        String dataDir = PathUtils.getDataDirectory(context);
+        if (name.startsWith(dataDir)) {
+            name = name.replace(dataDir, "mzn_dd_");
+        }
+
+        name = name.replace("/", "mzn_fd_");
         return name;
     }
 
@@ -101,7 +112,7 @@ public class ConfigFileManager {
             obj.put("identifier", s.identifier);
             obj.put("name", s.name);
             obj.put("publisher", s.publisher);
-            obj.put("tray_image_file", getFileName(s.trayImageFile));
+            obj.put("tray_image_file", getFileName(context, s.trayImageFile));
             obj.put("image_data_version", s.imageDataVersion);
             obj.put("avoid_cache", s.avoidCache);
             obj.put("animated_sticker_pack", s.animatedStickerPack);
@@ -113,7 +124,7 @@ public class ConfigFileManager {
             JSONArray stickerList = new JSONArray();
             for (Sticker _sticker : s.getStickers()) {
                 JSONObject stickerObj = new JSONObject();
-                String stickerFileName = getFileName(_sticker.imageFileName);
+                String stickerFileName = getFileName(context, _sticker.imageFileName);
                 stickerObj.put("image_file", stickerFileName);
                 JSONArray _emojies = new JSONArray();
                 for (String emoji : _sticker.emojis) {

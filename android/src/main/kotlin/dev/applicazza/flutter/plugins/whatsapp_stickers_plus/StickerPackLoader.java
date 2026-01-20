@@ -123,9 +123,11 @@ class StickerPackLoader {
                     .getString(cursor.getColumnIndexOrThrow(LICENSE_AGREENMENT_WEBSITE));
             final String imageDataVersion = cursor.getString(cursor.getColumnIndexOrThrow(IMAGE_DATA_VERSION));
             final boolean avoidCache = cursor.getShort(cursor.getColumnIndexOrThrow(AVOID_CACHE)) > 0;
-            final boolean animatedStickerPack = cursor.getShort(cursor.getColumnIndexOrThrow(ANIMATED_STICKER_PACK)) > 0;
+            final boolean animatedStickerPack = cursor
+                    .getShort(cursor.getColumnIndexOrThrow(ANIMATED_STICKER_PACK)) > 0;
             final StickerPack stickerPack = new StickerPack(identifier, name, publisher, trayImage, publisherEmail,
-                    publisherWebsite, privacyPolicyWebsite, licenseAgreementWebsite, imageDataVersion, avoidCache, animatedStickerPack);
+                    publisherWebsite, privacyPolicyWebsite, licenseAgreementWebsite, imageDataVersion, avoidCache,
+                    animatedStickerPack);
             stickerPack.setAndroidPlayStoreLink(androidPlayStoreLink);
             stickerPack.setIosAppStoreLink(iosAppLink);
             stickerPackList.add(stickerPack);
@@ -159,12 +161,16 @@ class StickerPackLoader {
         return stickers;
     }
 
-    static private AssetFileDescriptor fetchFile(AssetManager am, @NonNull final String fileName) {
-        return (fileName.contains("mzn_ad_")) ? fetchAssetFile(am, fileName) : fetchNonAssetFile(fileName);
+    static private AssetFileDescriptor fetchFile(Context context, AssetManager am, @NonNull final String fileName) {
+        return (fileName.contains("mzn_ad_")) ? fetchAssetFile(am, fileName) : fetchNonAssetFile(context, fileName);
     }
 
-    static private AssetFileDescriptor fetchNonAssetFile(final String fileName) {
+    static private AssetFileDescriptor fetchNonAssetFile(Context context, String fileName) {
         try {
+            if (fileName.contains("mzn_dd_")) {
+                String dataDir = io.flutter.util.PathUtils.getDataDirectory(context);
+                fileName = fileName.replace("mzn_dd_", dataDir);
+            }
             String fname = fileName.replace("mzn_fd_", File.separator);
             final File file = new File(fname);
             return new AssetFileDescriptor(ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY), 0,
@@ -192,7 +198,7 @@ class StickerPackLoader {
     static byte[] fetchStickerAsset(@NonNull final String identifier, @NonNull final String name, Context context)
             throws IOException {
 
-        InputStream inputStream = fetchFile(context.getAssets(), name).createInputStream();
+        InputStream inputStream = fetchFile(context, context.getAssets(), name).createInputStream();
         final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         if (inputStream == null) {
             String stickerFileName = name.replace("mzn_ad_", File.separator);

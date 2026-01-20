@@ -189,7 +189,6 @@ public class StickerContentProvider extends ContentProvider {
                 return getStickerPackInfo(uri, Collections.singletonList(stickerPack));
             }
         }
-
         return getStickerPackInfo(uri, new ArrayList<StickerPack>());
     }
 
@@ -284,8 +283,12 @@ public class StickerContentProvider extends ContentProvider {
                 : fetchNonAssetFile(uri, fileName, identifier);
     }
 
-    private AssetFileDescriptor fetchNonAssetFile(final Uri uri, final String fileName, final String identifier) {
+    private AssetFileDescriptor fetchNonAssetFile(final Uri uri, String fileName, final String identifier) {
         try {
+            if (fileName.contains("mzn_dd_")) {
+                String dataDir = io.flutter.util.PathUtils.getDataDirectory(getContext());
+                fileName = fileName.replace("mzn_dd_", dataDir);
+            }
             String fname = fileName.replace("mzn_fd_", File.separator);
             final File file = new File(fname);
             return new AssetFileDescriptor(ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY), 0,
