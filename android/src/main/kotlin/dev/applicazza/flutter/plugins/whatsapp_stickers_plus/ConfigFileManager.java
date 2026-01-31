@@ -66,8 +66,16 @@ public class ConfigFileManager {
     }
 
     static boolean addNewPack(Context context, StickerPack stickerPack) throws JSONException, InvalidPackException {
+        // Load existing packs and skip rewrite if the image_data_version didn't change
+        List<StickerPack> existing = getStickerPacks(context);
+        for (StickerPack s : existing)
+            if (s.identifier.equals(stickerPack.identifier)
+                    && s.imageDataVersion != null
+                    && s.imageDataVersion.equals(stickerPack.imageDataVersion))
+                return true;
+
         List<StickerPack> stickerPacks = new ArrayList<StickerPack>();
-        for (StickerPack s : getStickerPacks(context)) {
+        for (StickerPack s : existing) {
             if (!s.identifier.equals(stickerPack.identifier)) {
                 stickerPacks.add(s);
             }

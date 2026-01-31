@@ -29,7 +29,31 @@ public class WhatsappStickersPlugin : FlutterPlugin, MethodCallHandler, Activity
     private var stickerPackList: List<StickerPack>? = null
     private var activity: Activity? = null
     private var result: Result? = null
+    private var pendingStickerPack: StickerPack? = null
+    private var pendingConfigBackup: String? = null
     val ADD_PACK = 200
+
+    // Helpers: compact, safe operations for config backup/restore/write
+    private fun backupConfig(): String? {
+        val ctx = context ?: return null
+        return runCatching {
+            val file = java.io.File(ConfigFileManager.getConfigFilePath(ctx))
+            if (file.exists()) file.readText() else null
+        }.getOrNull()
+    }
+
+    private fun restoreBackup(backup: String?) {
+        val ctx = context ?: return
+        runCatching {
+            if (backup != null) ConfigFileManager.writeConfigFile(ctx, backup)
+            else ConfigFileManager.generateConfigFile(ctx)
+        }
+    }
+
+    private fun writePackSilent(stickerPack: StickerPack) {
+        val ctx = context ?: return
+        runCatching { ConfigFileManager.addNewPack(ctx, stickerPack) }
+    }
 
     private val EXTRA_STICKER_PACK_ID = "sticker_pack_id"
     private val EXTRA_STICKER_PACK_AUTHORITY = "sticker_pack_authority"
@@ -89,12 +113,25 @@ public class WhatsappStickersPlugin : FlutterPlugin, MethodCallHandler, Activity
                     result.success(installed);
                 }
             }
+            "getInstalledStickerPacksVersions" -> {
+                try {
+                    val map = HashMap<String, String?>()
+                    val stickerPacks = ConfigFileManager.getStickerPacks(context!!)
+                    for (s in stickerPacks) {
+                        map[s.identifier] = s.imageDataVersion
+                    }
+                    result.success(map)
+                } catch (e: Exception) {
+                    result.error("error", e.message, null)
+                }
+            }
 
             "sendToWhatsApp" -> {
                 try {
                     val stickerPack: StickerPack = ConfigFileManager.fromMethodCall(context, call)
-                    // update json file
-                    ConfigFileManager.addNewPack(context, stickerPack)
+                    pendingConfigBackup = backupConfig()
+                    writePackSilent(stickerPack)
+                    pendingStickerPack = stickerPack
                     context?.let {
                         StickerPackValidator.verifyStickerPackValidity(
                             it,
@@ -177,36 +214,36 @@ public class WhatsappStickersPlugin : FlutterPlugin, MethodCallHandler, Activity
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
-        if (requestCode == ADD_PACK) {
-            // Create the intent
-            if (resultCode == Activity.RESULT_CANCELED) {
-                if (data != null) {
-                    val validationError = data.getStringExtra("validation_error")
-                    if (validationError != null) {
-                        this.result?.error("error", validationError, "")
-                    } else {
-                        this.result?.error("cancelled", "cancelled", "")
+            if (requestCode == ADD_PACK) {
+                when (resultCode) {
+                    Activity.RESULT_CANCELED -> {
+                        val validationError = data?.getStringExtra("validation_error")
+                        if (validationError != null) this.result?.error("error", validationError, "")
+                        else this.result?.error("cancelled", "cancelled", "")
+                        restoreBackup(pendingConfigBackup)
                     }
-                } else {
-                    this.result?.error("cancelled", "cancelled", "")
-                }
-            } else if (resultCode == Activity.RESULT_OK) {
-                if (data != null) {
-                    val bundle = data.extras!!
-                    if (bundle.containsKey("add_successful")) {
-                        this.result?.success("add_successful")
-                    } else if (bundle.containsKey("already_added")) {
-                        this.result?.error("already_added", "already_added", "")
-                    } else {
-                        this.result?.success("success")
+
+                    Activity.RESULT_OK -> {
+                        val bundle = data?.extras
+                        if (bundle != null) {
+                            when {
+                                bundle.containsKey("add_successful") || (!bundle.containsKey("already_added") && bundle.size() == 0) ->
+                                    this.result?.success("add_successful")
+                                bundle.containsKey("already_added") ->
+                                    this.result?.error("already_added", "already_added", "")
+                                else ->
+                                    this.result?.success("success")
+                            }
+                        } else {
+                            this.result?.success("success")
+                        }
                     }
-                } else {
-                    this.result?.success("success")
+
+                    else -> this.result?.success("unknown")
                 }
-            } else {
-                this.result?.success("unknown")
+                pendingStickerPack = null
+                pendingConfigBackup = null
             }
-        }
 
         return true
     }
