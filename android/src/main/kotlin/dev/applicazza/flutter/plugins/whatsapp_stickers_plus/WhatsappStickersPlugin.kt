@@ -118,7 +118,11 @@ public class WhatsappStickersPlugin : FlutterPlugin, MethodCallHandler, Activity
                     val map = HashMap<String, String?>()
                     val stickerPacks = ConfigFileManager.getStickerPacks(context!!)
                     for (s in stickerPacks) {
-                        map[s.identifier] = s.imageDataVersion
+                        // Only include packs that are actually whitelisted (installed) in WhatsApp
+                        val isWhitelisted = WhitelistCheck.isWhitelisted(context!!, s.identifier)
+                        if (isWhitelisted) {
+                            map[s.identifier] = s.imageDataVersion
+                        }
                     }
                     result.success(map)
                 } catch (e: Exception) {
