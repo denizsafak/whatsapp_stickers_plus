@@ -130,6 +130,33 @@ public class WhatsappStickersPlugin : FlutterPlugin, MethodCallHandler, Activity
                 }
             }
 
+            // Register a pack to sticker_packs.json without sending to WhatsApp
+            "registerPackInConfig" -> {
+                try {
+                    val stickerPack: StickerPack = ConfigFileManager.fromMethodCall(context, call)
+                    val success = ConfigFileManager.addNewPack(context!!, stickerPack)
+                    result.success(success)
+                } catch (e: Exception) {
+                    result.error("error", e.message, null)
+                }
+            }
+
+            // Check if a pack is registered in sticker_packs.json
+            "isPackRegisteredInConfig" -> {
+                try {
+                    val identifier = call.argument<String>("identifier")
+                    if (identifier != null && context != null) {
+                        val stickerPacks = ConfigFileManager.getStickerPacks(context!!)
+                        val isRegistered = stickerPacks.any { it.identifier == identifier }
+                        result.success(isRegistered)
+                    } else {
+                        result.success(false)
+                    }
+                } catch (e: Exception) {
+                    result.success(false)
+                }
+            }
+
             "sendToWhatsApp" -> {
                 try {
                     val stickerPack: StickerPack = ConfigFileManager.fromMethodCall(context, call)

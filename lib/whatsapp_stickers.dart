@@ -5,6 +5,52 @@ import 'exceptions.dart';
 class WhatsappStickers {
   static const MethodChannel _channel = MethodChannel('whatsapp_stickers_plus');
 
+  /// Registers a sticker pack to sticker_packs.json without sending to WhatsApp.
+  /// Useful for syncing imported packs that are already installed in WhatsApp.
+  static Future<bool> registerPackInConfig({
+    required String identifier,
+    required String name,
+    required String publisher,
+    required String trayImagePath,
+    required String imageDataVersion,
+    required bool animatedStickerPack,
+    required List<Map<String, dynamic>> stickers,
+    String? publisherWebsite,
+    String? privacyPolicyWebsite,
+    String? licenseAgreementWebsite,
+  }) async {
+    try {
+      final result = await _channel.invokeMethod<bool>('registerPackInConfig', {
+        'identifier': identifier,
+        'name': name,
+        'publisher': publisher,
+        'trayImageFileName': trayImagePath,
+        'imageDataVersion': imageDataVersion,
+        'animatedStickerPack': animatedStickerPack,
+        'stickers': stickers,
+        'publisherWebsite': publisherWebsite,
+        'privacyPolicyWebsite': privacyPolicyWebsite,
+        'licenseAgreementWebsite': licenseAgreementWebsite,
+      });
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Checks if a pack is registered in sticker_packs.json (not in WhatsApp).
+  static Future<bool> isPackRegisteredInConfig(String identifier) async {
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        'isPackRegisteredInConfig',
+        {'identifier': identifier},
+      );
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   final List<Map<String, dynamic>> _stickers = [];
 
   final String identifier;
